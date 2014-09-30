@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Replace this value with your add-on name
-XPI=youraddon.xpi
+XPI=logview.xpi
 
 # Replace this value to push to different release channels.
 # Nightly = org.mozilla.fennec
@@ -14,8 +14,6 @@ ANDROID_APP_ID=org.mozilla.firefox
 zip -r $XPI bootstrap.js \
             install.rdf \
             chrome.manifest \
-            content \
-            locale \
             README.md \
     -x *.DS_Store*
 
