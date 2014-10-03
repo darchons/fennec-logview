@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE logview SYSTEM "chrome://logview/locale/locale.dtd">
+
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <setting pref="extensions.logview.priority" type="menulist" title="&options_priority;">
+    <menulist>
+      <menupopup>
+        <menuitem value="4" label="&options_priority_info;"/>
+        <menuitem value="5" label="&options_priority_warn;"/>
+        <menuitem value="6" label="&options_priority_error;"/>
+        <menuitem value="7" label="&options_priority_fatal;"/>
+      </menupopup>
+    </menulist>
+  </setting>
+  <setting pref="extensions.logview.parse_js" type="bool" title="&options_parse_js;">
+    &options_parse_js_desc;
+  </setting>
+</vbox>

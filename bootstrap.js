@@ -4,8 +4,9 @@ Cu.import("resource://gre/modules/Services.jsm");
 
 const window = Services.wm.getMostRecentWindow("navigator:browser");
 
-var gWorker = null;
-var gLastTimestamp = Date.now();
+const PREF_ROOT = "extensions.logview.";
+const PREF_PRIORITY = PREF_ROOT + "priority";
+const PREF_PARSE_JS = PREF_ROOT + "parse_js";
 
 const LOG_VERBOSE = 2;
 const LOG_DEBUG = 3;
@@ -13,13 +14,33 @@ const LOG_INFO = 4;
 const LOG_WARN = 5;
 const LOG_ERROR = 6;
 const LOG_FATAL = 7;
+const LOG_PRIORITY = "??VDIWEF";
+
+var gWorker = null;
+var gPrefPriority = LOG_ERROR;
+var gPrefParseJS = true;
+var gLastTimestamp = Date.now();
+
+const RE_JSCONSOLE = /\[?(.+?):(.+)\]?/;
 
 const HANDLERS = {
   "log": (message) => {
     let log = message.log;
 
-    if (log.priority < LOG_ERROR &&
-        (log.tag !== "GeckoConsole" || log.message.indexOf("Error") < 0)) {
+    if (gPrefParseJS && log.tag === "GeckoConsole") {
+      let parts = RE_JSCONSOLE.exec(log.message);
+      if (parts && parts.length >= 3) {
+        log.tag = parts[1].trim();
+        log.message = parts[2].trim();
+        if (log.tag.indexOf("Warning") >= 0) {
+          log.priority = LOG_WARN;
+        } else if (log.tag.indexOf("Error") >= 0) {
+          log.priority = LOG_ERROR;
+        }
+      }
+    }
+
+    if (log.priority < gPrefPriority) {
       return;
     }
 
@@ -29,7 +50,8 @@ const HANDLERS = {
     }
     gLastTimestamp = time;
 
-    window.NativeWindow.toast.show(log.tag + "\n" + log.message, "short");
+    window.NativeWindow.toast.show(
+      LOG_PRIORITY.charAt(log.priority) + "/" + log.tag + "\n\n" + log.message, "short");
   },
 };
 
@@ -67,14 +89,43 @@ function endLogview() {
   gWorker = null;
 }
 
+const OBSERVER = {
+  observe: (subject, topic, data) => {
+    if (topic != "nsPref:changed") {
+      return;
+    }
+
+    if (data === PREF_PRIORITY) {
+      try {
+        gPrefPriority = Services.prefs.getIntPref(PREF_PRIORITY);
+      } catch (e) {
+      }
+    } else if (data === PREF_PARSE_JS) {
+      try {
+        gPrefParseJS = Services.prefs.getBoolPref(PREF_PARSE_JS);
+      } catch (e) {
+      }
+    }
+  },
+};
+
 /**
  * bootstrap.js API
  */
 function startup(aData, aReason) {
+  let prefs = Services.prefs.getDefaultBranch("");
+  prefs.setIntPref(PREF_PRIORITY, gPrefPriority);
+  prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS);
+
+  OBSERVER.observe(null, "nsPref:changed", PREF_PRIORITY);
+  OBSERVER.observe(null, "nsPref:changed", PREF_PARSE_JS);
+
   startLogview();
+  Services.prefs.addObserver(PREF_ROOT, OBSERVER, false);
 }
 
 function shutdown(aData, aReason) {
+  Services.prefs.removeObserver(PREF_ROOT, OBSERVER);
   endLogview();
 }
 

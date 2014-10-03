@@ -1,0 +1,7 @@
+<!ENTITY options_priority "Minimum log priority">
+<!ENTITY options_priority_info "INFO">
+<!ENTITY options_priority_warn "WARN">
+<!ENTITY options_priority_error "ERROR">
+<!ENTITY options_priority_fatal "FATAL">
+<!ENTITY options_parse_js "Parse JS console output">
+<!ENTITY options_parse_js_desc "Reclassify JS console output as warnings or errors based on the log message.">

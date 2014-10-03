@@ -10,6 +10,8 @@
         <em:description>Fennec add-on for viewing logcat</em:description>
         <em:creator>Jim Chen</em:creator>
 
+        <em:optionsType>2</em:optionsType>
+
         <!-- Mobile -->
         <em:targetApplication>
             <Description>
