@@ -15,6 +15,7 @@ zip -r $XPI bootstrap.js \
             install.rdf \
             chrome.manifest \
             README.md \
+            content \
     -x *.DS_Store*
 
 # Push the add-on to your device to test
