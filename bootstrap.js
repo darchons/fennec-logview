@@ -2,8 +2,6 @@ const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 
-const window = Services.wm.getMostRecentWindow("navigator:browser");
-
 const PREF_ROOT = "extensions.logview.";
 const PREF_PRIORITY = PREF_ROOT + "priority";
 const PREF_PARSE_JS = PREF_ROOT + "parse_js";
@@ -16,6 +14,7 @@ const LOG_ERROR = 6;
 const LOG_FATAL = 7;
 const LOG_PRIORITY = "??VDIWEF";
 
+var gWindow = null;
 var gWorker = null;
 var gPrefPriority = LOG_ERROR;
 var gPrefParseJS = true;
@@ -50,10 +49,17 @@ const HANDLERS = {
     }
     gLastTimestamp = time;
 
-    window.NativeWindow.toast.show(
+    getWindow() && gWindow.NativeWindow.toast.show(
       LOG_PRIORITY.charAt(log.priority) + "/" + log.tag + "\n\n" + log.message, "short");
   },
 };
+
+function getWindow() {
+  if (!gWindow) {
+    gWindow = Services.wm.getMostRecentWindow("navigator:browser");
+  }
+  return gWindow;
+}
 
 function startLogview() {
   if (gWorker) {
