@@ -28,11 +28,16 @@ const HANDLERS = {
     gFd = libc_open(message.file,
                     /* O_RDONLY | O_CLOEXEC */ 0x80000,
                     /* S_IRUSR */ 0x100);
+    if (gFd === -1) {
+      // Error opening file (pre-ICS?).
+      gFd = null;
+      return;
+    }
     HANDLERS.read();
   },
 
   "read": () => {
-    if (!gFd) {
+    if (gFd === null) {
       return;
     }
 
@@ -79,8 +84,10 @@ const HANDLERS = {
   },
 
   "end": () => {
-    libc_close(gFd);
-    gFd = null;
+    if (gFd !== null) {
+      libc_close(gFd);
+      gFd = null;
+    }
     libc.close();
     self.close();
   }
