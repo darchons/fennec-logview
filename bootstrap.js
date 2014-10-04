@@ -46,6 +46,8 @@ const HANDLERS = {
           log.priority = LOG_WARN;
         } else if (log.tag.indexOf("Error") >= 0) {
           log.priority = LOG_ERROR;
+        } else {
+          log.priority = LOG_INFO;
         }
       }
     }
