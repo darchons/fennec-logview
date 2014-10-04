@@ -20,7 +20,7 @@ var gPrefPriority = LOG_ERROR;
 var gPrefParseJS = true;
 var gLastTimestamp = Date.now();
 
-const RE_JSCONSOLE = /\[?(.+?):(.+)\]?/;
+const RE_JSCONSOLE = /\[?(.+?):(.+?)\]?/;
 
 const HANDLERS = {
   "log": (message) => {
