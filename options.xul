@@ -16,4 +16,7 @@
   <setting pref="extensions.logview.parse_js" type="bool" title="&options_parse_js;">
     &options_parse_js_desc;
   </setting>
+  <setting pref="extensions.logview.hide_content" type="bool" title="&options_hide_content;">
+    &options_hide_content_desc;
+  </setting>
 </vbox>

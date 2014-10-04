@@ -5,6 +5,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 const PREF_ROOT = "extensions.logview.";
 const PREF_PRIORITY = PREF_ROOT + "priority";
 const PREF_PARSE_JS = PREF_ROOT + "parse_js";
+const PREF_HIDE_CONTENT = PREF_ROOT + "hide_content";
 
 const LOG_VERBOSE = 2;
 const LOG_DEBUG = 3;
@@ -14,20 +15,30 @@ const LOG_ERROR = 6;
 const LOG_FATAL = 7;
 const LOG_PRIORITY = "??VDIWEF";
 
+const CONSOLE_TAG = "GeckoConsole";
+
 var gWindow = null;
 var gWorker = null;
 var gPrefPriority = LOG_ERROR;
 var gPrefParseJS = true;
+var gPrefHideContent = true;
 var gLastTimestamp = Date.now();
 
-const RE_JSCONSOLE = /\[?(.+?):(.+?)\]?/;
+const RE_JSCONSOLE = /^\[?(.+?):(.+?)\]?$/;
+const RE_JSCONTENT = /https?:\/\//;
 
 const HANDLERS = {
   "log": (message) => {
     let log = message.log;
 
-    if (gPrefParseJS && log.tag === "GeckoConsole") {
-      let parts = RE_JSCONSOLE.exec(log.message);
+    if (gPrefHideContent && log.tag === CONSOLE_TAG) {
+      if (RE_JSCONTENT.test(log.message)) {
+        return;
+      }
+    }
+
+    if (gPrefParseJS && log.tag === CONSOLE_TAG) {
+      let parts = RE_JSCONSOLE.exec(log.message.trim());
       if (parts && parts.length >= 3) {
         log.tag = parts[1].trim();
         log.message = parts[2].trim();
@@ -111,6 +122,11 @@ const OBSERVER = {
         gPrefParseJS = Services.prefs.getBoolPref(PREF_PARSE_JS);
       } catch (e) {
       }
+    } else if (data === PREF_HIDE_CONTENT) {
+      try {
+        gPrefHideContent = Services.prefs.getBoolPref(PREF_HIDE_CONTENT);
+      } catch (e) {
+      }
     }
   },
 };
@@ -122,9 +138,16 @@ function startup(aData, aReason) {
   let prefs = Services.prefs.getDefaultBranch("");
   prefs.setIntPref(PREF_PRIORITY, gPrefPriority);
   prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS);
+  prefs.setBoolPref(PREF_HIDE_CONTENT, gPrefHideContent);
 
-  OBSERVER.observe(null, "nsPref:changed", PREF_PRIORITY);
-  OBSERVER.observe(null, "nsPref:changed", PREF_PARSE_JS);
+  [
+    PREF_PRIORITY,
+    PREF_PARSE_JS,
+    PREF_HIDE_CONTENT,
+
+  ].forEach((pref) => {
+    OBSERVER.observe(null, "nsPref:changed", pref);
+  });
 
   startLogview();
   Services.prefs.addObserver(PREF_ROOT, OBSERVER, false);
