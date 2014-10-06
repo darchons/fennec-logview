@@ -25,7 +25,7 @@ var gPrefHideContent = true;
 var gLastTimestamp = Date.now();
 
 const RE_JSCONSOLE = /^\[?(.+?):(.+?)\]?$/;
-const RE_JSCONTENT = /https?:\/\//;
+const RE_JSCONTENT = /https?:\/\/|RFC 5746|"downloadable font:/;
 
 const HANDLERS = {
   "log": (message) => {
