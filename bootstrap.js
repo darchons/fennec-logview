@@ -62,8 +62,10 @@ const HANDLERS = {
     }
     gLastTimestamp = time;
 
+    let linebreak = log.message.indexOf("\n");
     getWindow() && gWindow.NativeWindow.toast.show(
-      LOG_PRIORITY.charAt(log.priority) + "/" + log.tag + "\n\n" + log.message, "short");
+      LOG_PRIORITY.charAt(log.priority) + "/" + log.tag + "\n" +
+      (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short");
   },
 };
 
