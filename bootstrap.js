@@ -1,6 +1,7 @@
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/Prompt.jsm");
 
 const PREF_ROOT = "extensions.logview.";
 const PREF_PRIORITY = PREF_ROOT + "priority";
@@ -62,10 +63,20 @@ const HANDLERS = {
     }
     gLastTimestamp = time;
 
+    let title = LOG_PRIORITY.charAt(log.priority) + "/" + log.tag;
     let linebreak = log.message.indexOf("\n");
-    getWindow() && gWindow.NativeWindow.toast.show(
-      LOG_PRIORITY.charAt(log.priority) + "/" + log.tag + "\n" +
-      (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short");
+    getWindow() && gWindow.NativeWindow.toast.show(title + ": " +
+      (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short", {
+        button: {
+          label: "View",
+          callback: () => {
+            new Prompt({
+              title: title,
+              message: log.message
+            }).show();
+          },
+        },
+      });
   },
 };
 
