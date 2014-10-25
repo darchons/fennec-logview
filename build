@@ -14,6 +14,7 @@ ANDROID_APP_ID=org.mozilla.firefox
 rm $XPI
 zip -r $XPI bootstrap.js \
             chrome.manifest \
+            icon.png \
             install.rdf \
             options.xul \
             README.md \
