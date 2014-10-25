@@ -67,7 +67,7 @@
 
       function logCallback(log) {
         if (log.priority <= Logs.LOG_DEBUG) {
-          return true;
+          return;
         }
 
         if (log.localTime < startTime) {
@@ -76,7 +76,7 @@
 
         if (log.localTime > cutoffTime) {
           savedList.push(log);
-          return true;
+          return;
         }
 
         var doc = document.documentElement;
@@ -117,11 +117,10 @@
         if (scrollToBottom && !queuedScroll) {
           queuedScroll = true;
           window.setTimeout(function() {
-            logList.lastChild.scrollIntoView(false);
+            logList.lastChild && logList.lastChild.scrollIntoView(false);
             queuedScroll = false;
           }, 500);
         }
-        return true;
       }
 
       function onLoad() {
@@ -130,13 +129,13 @@
         window.addEventListener("focus", onFocus);
 
         Logs.dump(logCallback);
-        Logs.listen(logCallback);
         startTime = Date.now();
+        Logs.listen(logCallback);
 
         setTimeout(function() {
-          document.getElementById('logs').lastChild.scrollIntoView(false);
+          var child = document.getElementById('logs').lastChild;
+          child && child.scrollIntoView(false);
         }, 500);
-
       }
 
       function onFocus() {

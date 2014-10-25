@@ -19,7 +19,7 @@ const HANDLERS = {
     var log = message.log;
 
     for (let i = 0; i < gListeners.length; i++) {
-      if (!gListeners[i](log)) {
+      if (gListeners[i](log) === false) {
         // Remove listener if it returns false.
         gListeners.splice(i--, 1);
       }
@@ -36,7 +36,7 @@ const HANDLERS = {
 
 this.Logs = {
 
-  LOG_LIMIT: 100,
+  LOG_LIMIT: 200,
 
   LOG_VERBOSE: 2,
   LOG_DEBUG: 3,
@@ -80,7 +80,7 @@ this.Logs = {
       if (!log) {
         continue;
       }
-      if (!fn(log)) {
+      if (fn(log) === false) {
         return false;
       }
     }

@@ -69,7 +69,7 @@ function showLogs() {
 function logCallback(log) {
   if (gPrefHideContent && log.tag === CONSOLE_TAG) {
     if (RE_JSCONTENT.test(log.message)) {
-      return true;
+      return;
     }
   }
 
@@ -89,12 +89,12 @@ function logCallback(log) {
   }
 
   if (log.priority < gPrefPriority) {
-    return true;
+    return;
   }
 
   let time = Date.now();
   if (time - gLastTimestamp < 100) {
-    return true;
+    return;
   }
   gLastTimestamp = time;
 
@@ -122,7 +122,6 @@ function logCallback(log) {
       title + ": " + (linebreak < 0 ? log.message : log.message.substr(0, linebreak)),
       "short", options);
   });
-  return true;
 }
 
 const OBSERVER = {
