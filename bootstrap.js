@@ -8,77 +8,16 @@ const PREF_PRIORITY = PREF_ROOT + "priority";
 const PREF_PARSE_JS = PREF_ROOT + "parse_js";
 const PREF_HIDE_CONTENT = PREF_ROOT + "hide_content";
 
-const LOG_VERBOSE = 2;
-const LOG_DEBUG = 3;
-const LOG_INFO = 4;
-const LOG_WARN = 5;
-const LOG_ERROR = 6;
-const LOG_FATAL = 7;
-const LOG_PRIORITY = "??VDIWEF";
-
 const CONSOLE_TAG = "GeckoConsole";
 
 var gWindow = null;
-var gWorker = null;
-var gPrefPriority = LOG_ERROR;
-var gPrefParseJS = true;
-var gPrefHideContent = true;
+var gPrefPriority;
+var gPrefParseJS;
+var gPrefHideContent;
 var gLastTimestamp = Date.now();
 
 const RE_JSCONSOLE = /^\[?(.+?):(.+?)\]?$/;
 const RE_JSCONTENT = /https?:\/\/|RFC 5746|"downloadable font:/;
-
-const HANDLERS = {
-  "log": (message) => {
-    let log = message.log;
-
-    if (gPrefHideContent && log.tag === CONSOLE_TAG) {
-      if (RE_JSCONTENT.test(log.message)) {
-        return;
-      }
-    }
-
-    if (gPrefParseJS && log.tag === CONSOLE_TAG) {
-      let parts = RE_JSCONSOLE.exec(log.message.trim());
-      if (parts && parts.length >= 3) {
-        log.tag = parts[1].trim();
-        log.message = parts[2].trim();
-        if (log.tag.indexOf("Warning") >= 0) {
-          log.priority = LOG_WARN;
-        } else if (log.tag.indexOf("Error") >= 0) {
-          log.priority = LOG_ERROR;
-        } else {
-          log.priority = LOG_INFO;
-        }
-      }
-    }
-
-    if (log.priority < gPrefPriority) {
-      return;
-    }
-
-    let time = Date.now();
-    if (time - gLastTimestamp < 100) {
-      return;
-    }
-    gLastTimestamp = time;
-
-    let title = LOG_PRIORITY.charAt(log.priority) + "/" + log.tag;
-    let linebreak = log.message.indexOf("\n");
-    getWindow() && gWindow.NativeWindow.toast.show(title + ": " +
-      (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short", {
-        button: {
-          label: "View",
-          callback: () => {
-            new Prompt({
-              title: title,
-              message: log.message
-            }).show();
-          },
-        },
-      });
-  },
-};
 
 function getWindow() {
   if (!gWindow) {
@@ -87,42 +26,59 @@ function getWindow() {
   return gWindow;
 }
 
-function startLogview() {
-  if (gWorker) {
-    return;
-  }
-
-  gWorker = new ChromeWorker("chrome://logview/content/worker.js");
-
-  gWorker.addEventListener("message", (event) => {
-    let message = event.data;
-
-    if (message.type in HANDLERS) {
-      return HANDLERS[message.type](message);
+function logCallback(log) {
+  if (gPrefHideContent && log.tag === CONSOLE_TAG) {
+    if (RE_JSCONTENT.test(log.message)) {
+      return true;
     }
-    throw new Error("invalid message type: " + message.type);
-
-  }, false);
-
-  gWorker.postMessage({
-    type: "start",
-    file: "/dev/log/main",
-  });
-}
-
-function endLogview() {
-  if (!gWorker) {
-    return;
   }
 
-  gWorker.postMessage({
-    type: "end",
-  });
-  gWorker = null;
+  if (gPrefParseJS && log.tag === CONSOLE_TAG) {
+    let parts = RE_JSCONSOLE.exec(log.message.trim());
+    if (parts && parts.length >= 3) {
+      log.tag = parts[1].trim();
+      log.message = parts[2].trim();
+      if (log.tag.indexOf("Warning") >= 0) {
+        log.priority = Logs.LOG_WARN;
+      } else if (log.tag.indexOf("Error") >= 0) {
+        log.priority = Logs.LOG_ERROR;
+      } else {
+        log.priority = Logs.LOG_INFO;
+      }
+    }
+  }
+
+  if (log.priority < gPrefPriority) {
+    return true;
+  }
+
+  let time = Date.now();
+  if (time - gLastTimestamp < 100) {
+    return true;
+  }
+  gLastTimestamp = time;
+
+  let title = Logs.getPriorityLabel(log.priority) + "/" + log.tag;
+  let linebreak = log.message.indexOf("\n");
+  let options = {
+    button: {
+      label: "View",
+      callback: () => {
+        new Prompt({
+          title: title,
+          message: log.message,
+        }).show();
+      },
+    },
+  };
+
+  getWindow() && gWindow.NativeWindow.toast.show(title + ": " +
+    (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short", options);
+  return true;
 }
 
 const OBSERVER = {
-  observe: (subject, topic, data) => {
+  observe: function(subject, topic, data) {
     if (topic != "nsPref:changed") {
       return;
     }
@@ -150,10 +106,12 @@ const OBSERVER = {
  * bootstrap.js API
  */
 function startup(aData, aReason) {
+  Cu.import("chrome://logview/content/Logs.jsm");
+
   let prefs = Services.prefs.getDefaultBranch("");
-  prefs.setIntPref(PREF_PRIORITY, gPrefPriority);
-  prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS);
-  prefs.setBoolPref(PREF_HIDE_CONTENT, gPrefHideContent);
+  prefs.setIntPref(PREF_PRIORITY, gPrefPriority = Logs.LOG_ERROR);
+  prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS = true);
+  prefs.setBoolPref(PREF_HIDE_CONTENT, gPrefHideContent = true);
 
   [
     PREF_PRIORITY,
@@ -164,13 +122,15 @@ function startup(aData, aReason) {
     OBSERVER.observe(null, "nsPref:changed", pref);
   });
 
-  startLogview();
+  Logs.init();
+  Logs.listen(logCallback);
   Services.prefs.addObserver(PREF_ROOT, OBSERVER, false);
 }
 
 function shutdown(aData, aReason) {
   Services.prefs.removeObserver(PREF_ROOT, OBSERVER);
-  endLogview();
+  Logs.unlisten(logCallback);
+  Logs.term();
 }
 
 function install(aData, aReason) {
