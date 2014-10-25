@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>about:logs</title>
+    <style type="text/css">
+      html, body {
+        margin: 0px;
+      }
+      dt {
+        font-family: monospace;
+        font-weight: bold;
+        background-color: #eeeeee;
+        padding: 5px;
+      }
+      dt::before {
+        padding-right: 10px;
+      }
+      .log-V::before {
+        content: 'VERB';
+        color: #808080;
+      }
+      .log-D::before {
+        content: 'DEBUG';
+        color: #404040;
+      }
+      .log-I::before {
+        content: 'INFO';
+        color: #5bc0de;
+      }
+      .log-W::before {
+        content: 'WARN';
+        color: #f0ad4e;
+      }
+      .log-E::before {
+        content: 'ERROR';
+        color: #d9534f;
+      }
+      .log-F::before {
+        content: 'FATAL';
+        color: #ff0000;
+      }
+      dd {
+        font-family: monospace;
+        margin: 2px auto 2px 10px;
+        white-space: pre-wrap;
+        background-color: #ffffff;
+        transition: background-color 2s;
+      }
+      dd.log-initial {
+        background-color: #c0c0c0;
+      }
+    </style>
+  </head>
+  <body>
+    <dl id="logs"></dl>
+    <script>(function() {
+      var Logs = Components.utils.import("chrome://logview/content/Logs.jsm", {}).Logs;
+
+      var logList = document.getElementById("logs");
+      var savedList = [];
+      var startTime = 0;
+      var cutoffTime = Date.now();
+      var queuedScroll = false;
+      var queuedClear = false;
+
+      function logCallback(log) {
+        if (log.priority <= Logs.LOG_DEBUG) {
+          return true;
+        }
+
+        if (log.localTime < startTime) {
+          return;
+        }
+
+        if (log.localTime > cutoffTime) {
+          savedList.push(log);
+          return true;
+        }
+
+        var doc = document.documentElement;
+        var logTitle = document.createElement("dt");
+        var logMessage = document.createElement("dd");
+
+        logTitle.className = "log-" + Logs.getPriorityLabel(log.priority);
+        logTitle.textContent = log.tag;
+        logMessage.className = "log-initial";
+        logMessage.textContent = log.message;
+
+        var scrollToBottom = (doc.scrollTopMax - doc.scrollTop) < 20;
+
+        if (logList.childNodes.length > 2 * Logs.LOG_LIMIT) {
+          logList.removeChild(logList.firstChild);
+          logList.removeChild(logList.firstChild);
+        }
+        logList.appendChild(logTitle);
+        logList.appendChild(logMessage);
+
+        if (!queuedClear) {
+          queuedClear = true;
+          window.setTimeout(function() {
+            var child = logList.lastChild;
+            for (; child != null; child = child.previousSibling) {
+              if (child.tagName !== "DD") {
+                continue;
+              }
+              if (child.className !== "log-initial") {
+                break;
+              }
+              child.className = "";
+            }
+            queuedClear = false;
+          }, 100);
+        }
+
+        if (scrollToBottom && !queuedScroll) {
+          queuedScroll = true;
+          window.setTimeout(function() {
+            logList.lastChild.scrollIntoView(false);
+            queuedScroll = false;
+          }, 500);
+        }
+        return true;
+      }
+
+      function onLoad() {
+        window.removeEventListener("load", onLoad);
+        window.addEventListener("unload", onUnload);
+        window.addEventListener("focus", onFocus);
+
+        Logs.dump(logCallback);
+        Logs.listen(logCallback);
+        startTime = Date.now();
+
+        setTimeout(function() {
+          document.getElementById('logs').lastChild.scrollIntoView(false);
+        }, 500);
+
+      }
+
+      function onFocus() {
+        cutoffTime = Date.now();
+        savedList.forEach(function(log) {
+          logCallback(log)
+        });
+        savedList = [];
+      }
+
+      function onUnload() {
+        window.removeEventListener("focus", onFocus);
+        window.removeEventListener("unload", onUnload);
+        Logs.unlisten(logCallback);
+      }
+
+      window.addEventListener("load", onLoad);
+    })();</script>
+  </body>
+</html>

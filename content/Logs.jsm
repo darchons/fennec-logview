@@ -8,7 +8,6 @@ this.EXPORTED_SYMBOLS = [ "Logs" ];
 
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
-const MAX_LOGS = 1000;
 const LOG_PRIORITY = "??VDIWEF";
 
 var gWorker = null;
@@ -18,12 +17,6 @@ var gListeners = [];
 const HANDLERS = {
   "log": function (message) {
     var log = message.log;
-    if (gLogs.length >= 2 * MAX_LOGS) {
-      gLogs.splice(0, gLogs.length - MAX_LOGS + 1);
-    } else if (gLogs.length >= MAX_LOGS) {
-      delete gLogs[gLogs.length - MAX_LOGS];
-    }
-    gLogs.push(log);
 
     for (let i = 0; i < gListeners.length; i++) {
       if (!gListeners[i](log)) {
@@ -31,10 +24,19 @@ const HANDLERS = {
         gListeners.splice(i--, 1);
       }
     }
+
+    if (gLogs.length >= 2 * Logs.LOG_LIMIT) {
+      gLogs.splice(0, gLogs.length - Logs.LOG_LIMIT + 1);
+    } else if (gLogs.length >= Logs.LOG_LIMIT) {
+      delete gLogs[gLogs.length - Logs.LOG_LIMIT];
+    }
+    gLogs.push(log);
   }
 };
 
 this.Logs = {
+
+  LOG_LIMIT: 100,
 
   LOG_VERBOSE: 2,
   LOG_DEBUG: 3,

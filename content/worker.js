@@ -53,6 +53,7 @@ const HANDLERS = {
 
     let entry = ctypes.cast(BUFFER, logger_entry);
     let log = {
+      localTime: Date.now(),
       pid: entry.pid,
       tid: entry.tid,
       time: new Date(entry.sec * 1e3 + entry.nsec / 1e6),

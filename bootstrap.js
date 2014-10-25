@@ -1,7 +1,8 @@
-const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
+const { classes: Cc, interfaces: Ci, manager: Cm, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/Prompt.jsm");
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 const PREF_ROOT = "extensions.logview.";
 const PREF_PRIORITY = PREF_ROOT + "priority";
@@ -11,6 +12,7 @@ const PREF_HIDE_CONTENT = PREF_ROOT + "hide_content";
 const CONSOLE_TAG = "GeckoConsole";
 
 var gWindow = null;
+var gMenu = null;
 var gPrefPriority;
 var gPrefParseJS;
 var gPrefHideContent;
@@ -19,11 +21,49 @@ var gLastTimestamp = Date.now();
 const RE_JSCONSOLE = /^\[?(.+?):(.+?)\]?$/;
 const RE_JSCONTENT = /https?:\/\/|RFC 5746|"downloadable font:/;
 
-function getWindow() {
+function getWindow(fn) {
   if (!gWindow) {
     gWindow = Services.wm.getMostRecentWindow("navigator:browser");
   }
-  return gWindow;
+
+  if (gWindow) {
+    return fn(gWindow);
+  }
+
+  // Wait for a window.
+  let listener = {
+    onOpenWindow: function(window) {
+      let domWindow = window.QueryInterface(Ci.nsIInterfaceRequestor)
+                            .getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
+      let onLoad = () => {
+        if (!gWindow) {
+          gWindow = domWindow;
+        }
+        fn(gWindow);
+        domWindow.removeEventListener("UIReady", onLoad);
+      };
+      domWindow.addEventListener("UIReady", onLoad);
+      Services.wm.removeListener(listener);
+    },
+  };
+  Services.wm.addListener(listener);
+}
+
+function showLogs() {
+  getWindow(function(window) {
+    var browserApp = window.BrowserApp;
+    if (!browserApp) {
+      return;
+    }
+    browserApp.tabs.forEach((tab) => {
+      if (!browserApp || tab.window.location.href !== "about:logs") {
+        return;
+      }
+      browserApp.selectTab(tab);
+      browserApp = null;
+    });
+    browserApp && browserApp.addTab("about:logs");
+  });
 }
 
 function logCallback(log) {
@@ -67,13 +107,21 @@ function logCallback(log) {
         new Prompt({
           title: title,
           message: log.message,
-        }).show();
+          buttons: ["Show logs", "Close"],
+        }).show((data) => {
+          if (data.button === 0) {
+            showLogs();
+          }
+        });
       },
     },
   };
 
-  getWindow() && gWindow.NativeWindow.toast.show(title + ": " +
-    (linebreak < 0 ? log.message : log.message.substr(0, linebreak)), "short", options);
+  getWindow(function(window) {
+    window.NativeWindow.toast.show(
+      title + ": " + (linebreak < 0 ? log.message : log.message.substr(0, linebreak)),
+      "short", options);
+  });
   return true;
 }
 
@@ -102,6 +150,30 @@ const OBSERVER = {
   },
 };
 
+// Taken from https://github.com/staktrace/aboutlogcat
+function AboutModule() {
+}
+
+AboutModule.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAboutModule]),
+  classDescription: "about:logs",
+  classID: Components.ID("{f2e5dc15-d060-4c30-ae6d-61c953297e63}"),
+  contractID: "@mozilla.org/network/protocol/about;1?what=logs",
+
+  newChannel: function(uri) {
+    var channel = Services.io.newChannel("chrome://logview/content/aboutLogs.html", null, null);
+    channel.originalURI = uri;
+    return channel;
+  },
+
+  getURIFlags: function(uri) {
+    return Ci.nsIAboutModule.ALLOW_SCRIPT;
+  }
+};
+
+const ABOUT_FACTORY =
+  XPCOMUtils.generateNSGetFactory([AboutModule])(AboutModule.prototype.classID);
+
 /**
  * bootstrap.js API
  */
@@ -125,9 +197,29 @@ function startup(aData, aReason) {
   Logs.init();
   Logs.listen(logCallback);
   Services.prefs.addObserver(PREF_ROOT, OBSERVER, false);
+
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).registerFactory(
+    AboutModule.prototype.classID, AboutModule.prototype.classDescription,
+    AboutModule.prototype.contractID, ABOUT_FACTORY);
+
+  getWindow((window) => {
+    gMenu = window.NativeWindow.menu.add({
+      name: "Logs",
+      parent: window.NativeWindow.menu.toolsMenuID,
+      callback: showLogs
+    });
+  });
 }
 
 function shutdown(aData, aReason) {
+  if (gMenu != null) {
+    getWindow((window) => {
+      window.NativeWindow.menu.remove(gMenu);
+    });
+  }
+
+  Cm.unregisterFactory(AboutModule.prototype.classID, ABOUT_FACTORY);
+
   Services.prefs.removeObserver(PREF_ROOT, OBSERVER);
   Logs.unlisten(logCallback);
   Logs.term();
