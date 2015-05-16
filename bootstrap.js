@@ -18,7 +18,9 @@ var gPrefParseJS;
 var gPrefHideContent;
 var gLastTimestamp = Date.now();
 
-const RE_JSCONSOLE = /^\[?(.+?):(.+?)\]?$/;
+// [JavaScript Warning: "foo bar"]
+// [JavaScript Error: "foo bar"]
+const RE_JSCONSOLE = /^\[?(.+?):([^\/].+?)\]?$/;
 const RE_JSCONTENT = /https?:\/\/|RFC 5746|"downloadable font:/;
 
 function getWindow(fn) {
