@@ -71,28 +71,30 @@ function showLogs() {
 }
 
 function logCallback(log) {
-  if (gPrefHideContent && log.tag === CONSOLE_TAG) {
-    if (RE_JSCONTENT.test(log.message)) {
+  let {priority, tag, message} = log;
+
+  if (gPrefHideContent && tag === CONSOLE_TAG) {
+    if (RE_JSCONTENT.test(message)) {
       return;
     }
   }
 
-  if (gPrefParseJS && log.tag === CONSOLE_TAG) {
-    let parts = RE_JSCONSOLE.exec(log.message.trim());
+  if (gPrefParseJS && tag === CONSOLE_TAG) {
+    let parts = RE_JSCONSOLE.exec(message.trim());
     if (parts && parts.length >= 3) {
-      log.tag = parts[1].trim();
-      log.message = parts[2].trim();
-      if (log.tag.indexOf("Warning") >= 0) {
-        log.priority = Logs.LOG_WARN;
-      } else if (log.tag.indexOf("Error") >= 0) {
-        log.priority = Logs.LOG_ERROR;
+      tag = parts[1].trim();
+      message = parts[2].trim();
+      if (tag.indexOf("Warning") >= 0) {
+        priority = Logs.LOG_WARN;
+      } else if (tag.indexOf("Error") >= 0) {
+        priority = Logs.LOG_ERROR;
       } else {
-        log.priority = Logs.LOG_INFO;
+        priority = Logs.LOG_INFO;
       }
     }
   }
 
-  if (log.priority < gPrefPriority) {
+  if (priority < gPrefPriority) {
     return;
   }
 
@@ -102,15 +104,15 @@ function logCallback(log) {
   }
   gLastTimestamp = time;
 
-  let title = Logs.getPriorityLabel(log.priority) + "/" + log.tag;
-  let linebreak = log.message.indexOf("\n");
+  let title = Logs.getPriorityLabel(priority) + "/" + tag;
+  let linebreak = message.indexOf("\n");
   let options = {
     button: {
       label: "View",
       callback: () => {
         new Prompt({
           title: title,
-          message: log.message,
+          message: message,
           buttons: ["Show logs", "Close"],
         }).show((data) => {
           if (data.button === 0) {
@@ -122,8 +124,8 @@ function logCallback(log) {
   };
 
   getWindow(function(window) {
-    window.NativeWindow.toast.show(
-      title + ": " + (linebreak < 0 ? log.message : log.message.substr(0, linebreak)),
+    window.NativeWindow && window.NativeWindow.toast.show(
+      title + ": " + (linebreak < 0 ? message : message.substr(0, linebreak)),
       "short", options);
   });
 }
