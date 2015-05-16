@@ -8,6 +8,33 @@
       html, body {
         margin: 0px;
       }
+      #toolbar {
+        position: sticky;
+        top: 0px;
+        margin: 0px;
+        padding: 4px 4px;
+        list-style: none outside none;
+        background: #2196f3;
+        border-bottom: solid 1px #90caf9;
+      }
+      #toolbar>li {
+        display: inline-block;
+        margin: 0px 4px;
+      }
+      #toolbar a {
+        display: inline-block;
+        line-height: 24px;
+        padding: 6px 6px 6px 32px;
+        color: #fff;
+        text-decoration: none;
+        background: 6px center no-repeat;
+      }
+      #toolbar #copy {
+        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAQAAABKfvVzAAAATUlEQVR4AWMgC/wP/P/yPy7AgArBBEg5SRoQEpiQqhrw+eXVf380DQT98hJNAwGnAcEQ1zCqAQqHjYZXeJL3C2wa/P+/xKncF6aBRAgAEwzLA9ADFHsAAAAASUVORK5CYII%3D);
+      }
+      #toolbar #link {
+        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAQAAABKfvVzAAAAlUlEQVQ4y+3RwQqCUBCF4cnHE0KjhwqE3kntVVq0CHOhuPxalEgitoh2/rM5M8ycO9yJ2Pgnji4GbyIiRm1QO8zbz6B1fUVExKi1oPh05y61W3x7Z69BNpUuSFcXzlFN6aAd3c14VxOd/oeBGvsvf0g5pQc0cslic+LoMbNUgM7tFRERo9aB09wnU+kXD9cr1xfe+JknYxHV5KzICqwAAAAASUVORK5CYII%3D);
+      }
       dt {
         font-family: monospace;
         font-weight: bold;
@@ -50,7 +77,12 @@
     </style>
   </head>
   <body>
+    <ul id="toolbar">
+      <li><a id="copy" href="#">Copy</a></li>
+      <li><a id="link" href="#">Pastebin</a></li>
+    </ul>
     <dl id="logs"></dl>
+    <div id="anchor"></div>
     <script>(function() {
       const Logs = Components.utils.import("chrome://logview/content/Logs.jsm", {}).Logs;
       const MIN_LOG_LEVEL = Logs.LOG_DEBUG;
@@ -92,7 +124,7 @@
         if (container === logList && scrollToBottom && !queuedScroll) {
           queuedScroll = true;
           window.setTimeout(function() {
-            logList.lastChild && logList.lastChild.scrollIntoView(false);
+            document.getElementById("anchor").scrollIntoView(false);
             queuedScroll = false;
           }, 500);
         }
@@ -102,6 +134,8 @@
         window.removeEventListener("load", onLoad);
         window.addEventListener("unload", onUnload);
         window.addEventListener("focus", onFocus);
+        document.getElementById("copy").addEventListener("click", onCopy);
+        document.getElementById("link").addEventListener("click", onLink);
 
         var frag = document.createDocumentFragment();
         Logs.dump(function (log) {
@@ -112,23 +146,177 @@
         Logs.listen(logCallback);
 
         setTimeout(function() {
-          var child = document.getElementById('logs').lastChild;
-          child && child.scrollIntoView(false);
+          document.getElementById("anchor").scrollIntoView(false);
         }, 500);
       }
 
       function onFocus() {
         cutoffTime = Date.now();
-        savedList.forEach(function(log) {
-          logCallback(log)
+        var frag = document.createDocumentFragment();
+        savedList.forEach(function (log) {
+          logCallback(log);
         });
         savedList = [];
+        logList.appendChild(frag);
       }
 
       function onUnload() {
+        document.getElementById("link").removeEventListener("click", onLink);
+        document.getElementById("copy").removeEventListener("click", onCopy);
         window.removeEventListener("focus", onFocus);
         window.removeEventListener("unload", onUnload);
         Logs.unlisten(logCallback);
+      }
+
+      function getLogCat() {
+        var logcat = "";
+        Logs.dump(function (log) {
+          if (log.priority < MIN_LOG_LEVEL) {
+            return true;
+          }
+          if (log.localTime > cutoffTime) {
+            return false;
+          }
+          const time = new Date(log.time);
+          const heading = time.toLocaleFormat("%m-%d %H:%M:%S.") +
+              ("00" + time.getMilliseconds()).slice(-3) +
+              ("     " + log.pid).slice(-6) +
+              ("     " + log.tid).slice(-6) +
+              " " + Logs.getPriorityLabel(log.priority) +
+              " " + log.tag + ": ";
+
+          var body = "";
+          log.message.trim().split("\n").forEach(function (msg) {
+            body += heading + msg + "\n";
+          });
+          logcat += body;
+          return true;
+        });
+        return logcat;
+      }
+
+      function getWindow() {
+        return Components.utils.import("resource://gre/modules/Services.jsm", {})
+                    .Services.wm.getMostRecentWindow("navigator:browser");
+      }
+
+      function doCopy(text) {
+        return Components.classes["@mozilla.org/widget/clipboardhelper;1"]
+            .getService(Components.interfaces.nsIClipboardHelper)
+            .copyString(text, document);
+      }
+
+      function onCopy() {
+        try {
+          doCopy(getLogCat());
+          getWindow().NativeWindow.toast.show("Copied logcat to clipboard", "short");
+        } catch (e) {
+          getWindow().NativeWindow.toast.show("Cannot copy logcat:\n" + e, "long");
+        }
+      }
+
+      function onLink() {
+        function _showSuccess(url) {
+          function _copy() {
+            try {
+              doCopy(url);
+              getWindow().NativeWindow.toast.show("Copied link to clipboard", "short");
+            } catch (e) {
+              getWindow().NativeWindow.toast.show("Cannot copy link:\n" + e, "long");
+            }
+          }
+          function _open() {
+            try {
+              getWindow().BrowserApp.addTab(url);
+            } catch (e) {
+              getWindow().NativeWindow.toast.show("Cannot open link:\n" + e, "long");
+            }
+          }
+          getWindow().NativeWindow.doorhanger.show(
+              "Posted to Pastebin:\n" + url, "about:logs:link",
+              [{
+                label: "Copy link",
+                callback: _copy,
+              }, {
+                label: "Open link",
+                callback: _open,
+              }]);
+        }
+
+        function _showError(e) {
+          getWindow().NativeWindow.toast.show("Cannot post logcat:\n" + e, "long");
+        }
+
+        function _makeLink() {
+          function _onLinkLoad() {
+            var url = (function () {
+              const SEARCHES = [
+                /\/\?dl=(\d+)/,
+                /name=\"?parent_pid\"? *value=\"?(\d+)\"?/,
+              ];
+              var res = req.response;
+              for (var i = 0; i < SEARCHES.length; ++i) {
+                var matches = SEARCHES[i].exec(res);
+                if (!matches) {
+                  continue;
+                }
+                return URL + matches[1];
+              }
+              return null;
+            })();
+
+            if (req.status != 200 /* OK */ || !url) {
+              return _showError("Invalid response from server");
+            }
+            _showSuccess(url);
+          }
+
+          const URL = "https://pastebin.mozilla.org/";
+          const MAX_SIZE = 65535;
+          var req = new XMLHttpRequest({
+            mozAnon: true,
+          });
+          req.mozBackgroundRequest = true;
+          req.open("POST", URL, true);
+          req.setRequestHeader("Connection", "close");
+          req.overrideMimeType("text/plain");
+
+          var data = new FormData();
+          data.set("paste", "Send");
+          data.set("parent_pid", "");
+          data.set("format", "text");
+          data.set("poster", "");
+          data.set("expiry", "m");
+
+          var content = getLogCat();
+          if (content.length > MAX_SIZE) {
+            content = content.slice(
+                content.indexOf("\n", content.length - MAX_SIZE) + 1);
+          }
+          data.set("code2", content);
+
+          req.onerror = _showError;
+          req.onload = _onLinkLoad;
+
+          getWindow().NativeWindow.toast.show("Posting to Pastebin...", "short");
+          req.send(data);
+        }
+
+        getWindow().NativeWindow.doorhanger.show(
+            "Pastebin.mozilla.org is a public site. " +
+            "Are you okay with everything in the logs becoming public? " +
+            "For example, the logs may contain addresses of sites you have visited.",
+            "about:logs:link",
+            [{
+              label: "I'm okay with that! Continue!",
+              callback: function () {
+                try {
+                  _makeLink();
+                } catch (e) {
+                  _showError(e);
+                }
+              },
+            }]);
       }
 
       window.addEventListener("load", onLoad);
