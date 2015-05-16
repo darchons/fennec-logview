@@ -53,18 +53,20 @@ function getWindow(fn) {
 
 function showLogs() {
   getWindow(function(window) {
-    var browserApp = window.BrowserApp;
+    let browserApp = window.BrowserApp;
     if (!browserApp) {
       return;
     }
-    browserApp.tabs.forEach((tab) => {
-      if (!browserApp || tab.window.location.href !== "about:logs") {
-        return;
+    let isLogsTab = (tab) => {
+      if (tab.window.location.href !== "about:logs") {
+        return false;
       }
       browserApp.selectTab(tab);
-      browserApp = null;
-    });
-    browserApp && browserApp.addTab("about:logs");
+      return true;
+    };
+    if (!browserApp.tabs.some(isLogsTab)) {
+      browserApp.addTab("about:logs");
+    }
   });
 }
 
