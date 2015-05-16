@@ -9,9 +9,11 @@ this.EXPORTED_SYMBOLS = [ "Logs" ];
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
 const LOG_PRIORITY = "??VDIWEF";
+const LOG_LIMIT = 500;
 
 var gWorker = null;
-var gLogs = [];
+var gLogs = new Array(LOG_LIMIT);
+var gLogsPtr = 0;
 var gListeners = [];
 
 const HANDLERS = {
@@ -25,18 +27,16 @@ const HANDLERS = {
       }
     }
 
-    if (gLogs.length >= 2 * Logs.LOG_LIMIT) {
-      gLogs.splice(0, gLogs.length - Logs.LOG_LIMIT + 1);
-    } else if (gLogs.length >= Logs.LOG_LIMIT) {
-      delete gLogs[gLogs.length - Logs.LOG_LIMIT];
+    while (gLogsPtr >= gLogs.length) {
+      gLogsPtr -= gLogs.length;
     }
-    gLogs.push(log);
+    gLogs[gLogsPtr++] = log;
   }
 };
 
 this.Logs = {
 
-  LOG_LIMIT: 200,
+  LOG_LIMIT: LOG_LIMIT,
 
   LOG_VERBOSE: 2,
   LOG_DEBUG: 3,
@@ -76,11 +76,14 @@ this.Logs = {
   },
 
   dump: function(fn) {
-    for (let log of gLogs) {
-      if (!log) {
-        continue;
+    for (let i = gLogsPtr; i < gLogs.length; ++i) {
+      let log = gLogs[i];
+      if (log && fn(log) === false) {
+        return false;
       }
-      if (fn(log) === false) {
+    }
+    for (let i = 0; i < gLogsPtr; ++i) {
+      if (fn(gLogs[i]) === false) {
         return false;
       }
     }
