@@ -200,6 +200,7 @@ function startup(aData, aReason) {
   });
 
   Logs.init();
+  Logs.dump(logCallback);
   Logs.listen(logCallback);
   Services.prefs.addObserver(PREF_ROOT, OBSERVER, false);
 

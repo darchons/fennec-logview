@@ -91,9 +91,7 @@ this.Logs = {
     if (gListeners.indexOf(fn) >= 0) {
       return;
     }
-    if (this.dump(fn)) {
-      gListeners.push(fn);
-    }
+    gListeners.push(fn);
   },
 
   unlisten: function(fn) {

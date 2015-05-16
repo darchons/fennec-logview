@@ -60,7 +60,6 @@
 
       var logList = document.getElementById("logs");
       var savedList = [];
-      var startTime = 0;
       var cutoffTime = Date.now();
       var queuedScroll = false;
       var queuedClear = false;
@@ -70,9 +69,6 @@
           return;
         }
 
-        if (log.localTime < startTime) {
-          return;
-        }
 
         if (log.localTime > cutoffTime) {
           savedList.push(log);
@@ -128,8 +124,12 @@
         window.addEventListener("unload", onUnload);
         window.addEventListener("focus", onFocus);
 
-        Logs.dump(logCallback);
-        startTime = Date.now();
+        var frag = document.createDocumentFragment();
+        Logs.dump(function (log) {
+          logCallback(log, frag);
+        });
+        logList.appendChild(frag);
+
         Logs.listen(logCallback);
 
         setTimeout(function() {
