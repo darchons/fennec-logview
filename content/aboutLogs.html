@@ -46,71 +46,50 @@
         margin: 2px auto 2px 10px;
         white-space: pre-wrap;
         background-color: #ffffff;
-        transition: background-color 2s;
-      }
-      dd.log-initial {
-        background-color: #c0c0c0;
       }
     </style>
   </head>
   <body>
     <dl id="logs"></dl>
     <script>(function() {
-      var Logs = Components.utils.import("chrome://logview/content/Logs.jsm", {}).Logs;
+      const Logs = Components.utils.import("chrome://logview/content/Logs.jsm", {}).Logs;
+      const MIN_LOG_LEVEL = Logs.LOG_DEBUG;
+      const logList = document.getElementById("logs");
 
-      var logList = document.getElementById("logs");
       var savedList = [];
       var cutoffTime = Date.now();
       var queuedScroll = false;
-      var queuedClear = false;
 
-      function logCallback(log) {
-        if (log.priority <= Logs.LOG_DEBUG) {
+      function logCallback(log, frag) {
+        if (log.priority < MIN_LOG_LEVEL) {
           return;
         }
-
 
         if (log.localTime > cutoffTime) {
           savedList.push(log);
           return;
         }
 
-        var doc = document.documentElement;
-        var logTitle = document.createElement("dt");
-        var logMessage = document.createElement("dd");
+        const doc = document.documentElement;
+        const container = frag || logList;
+        const logTitle = document.createElement("dt");
+        const logMessage = document.createElement("dd");
 
         logTitle.className = "log-" + Logs.getPriorityLabel(log.priority);
         logTitle.textContent = log.tag;
-        logMessage.className = "log-initial";
         logMessage.textContent = log.message;
 
         var scrollToBottom = (doc.scrollTopMax - doc.scrollTop) < 20;
 
-        if (logList.childNodes.length > 2 * Logs.LOG_LIMIT) {
-          logList.removeChild(logList.firstChild);
-          logList.removeChild(logList.firstChild);
+        if (container === logList &&
+            container.childNodes.length > 2 /* per log */ * Logs.LOG_LIMIT) {
+          container.removeChild(container.firstChild);
+          container.removeChild(container.firstChild);
         }
-        logList.appendChild(logTitle);
-        logList.appendChild(logMessage);
+        container.appendChild(logTitle);
+        container.appendChild(logMessage);
 
-        if (!queuedClear) {
-          queuedClear = true;
-          window.setTimeout(function() {
-            var child = logList.lastChild;
-            for (; child != null; child = child.previousSibling) {
-              if (child.tagName !== "DD") {
-                continue;
-              }
-              if (child.className !== "log-initial") {
-                break;
-              }
-              child.className = "";
-            }
-            queuedClear = false;
-          }, 100);
-        }
-
-        if (scrollToBottom && !queuedScroll) {
+        if (container === logList && scrollToBottom && !queuedScroll) {
           queuedScroll = true;
           window.setTimeout(function() {
             logList.lastChild && logList.lastChild.scrollIntoView(false);
