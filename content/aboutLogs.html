@@ -282,18 +282,18 @@
           req.overrideMimeType("text/plain");
 
           var data = new FormData();
-          data.set("paste", "Send");
-          data.set("parent_pid", "");
-          data.set("format", "text");
-          data.set("poster", "");
-          data.set("expiry", "m");
+          data.append("paste", "Send");
+          data.append("parent_pid", "");
+          data.append("format", "text");
+          data.append("poster", "");
+          data.append("expiry", "m");
 
           var content = getLogCat();
           if (content.length > MAX_SIZE) {
             content = content.slice(
                 content.indexOf("\n", content.length - MAX_SIZE) + 1);
           }
-          data.set("code2", content);
+          data.append("code2", content);
 
           req.onerror = _showError;
           req.onload = _onLinkLoad;
