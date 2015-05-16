@@ -56,22 +56,19 @@ const HANDLERS = {
       localTime: Date.now(),
       pid: entry.pid,
       tid: entry.tid,
-      time: new Date(entry.sec * 1e3 + entry.nsec / 1e6),
+      time: entry.sec * 1e3 + entry.nsec / 1e6,
       priority: BUFFER[logger_entry.size],
     };
 
-    let msgStart = logger_entry.size + 1;
-    for (; msgStart < BUFFER.length; msgStart++) {
-      if (BUFFER[msgStart] === 0) {
-        break;
-      }
+    BUFFER[BUFFER.length - 1] = 0;
+    let tag = ctypes.cast(BUFFER.addressOfElement(logger_entry.size + 1),
+                          ctypes.char.ptr).readString();
+
+    let msgStart = logger_entry.size + 1 + tag.length;
+    for (; msgStart < BUFFER.length && BUFFER[msgStart] !== 0; msgStart++) {
     }
 
     msgStart = Math.min(msgStart + 1, BUFFER.length - 1);
-    BUFFER[BUFFER.length - 1] = 0;
-
-    let tag = ctypes.cast(BUFFER.addressOfElement(logger_entry.size + 1),
-                          ctypes.char.ptr).readString();
     let msg = ctypes.cast(BUFFER.addressOfElement(msgStart),
                           ctypes.char.ptr).readString();
 
