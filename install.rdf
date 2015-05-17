@@ -5,7 +5,7 @@
         <em:id>logview@jnchen.com</em:id>
         <em:type>2</em:type>
         <em:name>LogView</em:name>
-        <em:version>1.0</em:version>
+        <em:version>1.1</em:version>
         <em:bootstrap>true</em:bootstrap>
         <em:description>Fennec add-on for viewing logcat</em:description>
         <em:creator>Jim Chen</em:creator>
