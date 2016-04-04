@@ -23,9 +23,9 @@ const CONSOLE_TAG = "GeckoConsole";
 
 var gWindow = null;
 var gMenu = null;
-var gPrefPriority;
-var gPrefParseJS;
-var gPrefHideContent;
+var gPrefPriority = 7 /* Logs.LOG_FATAL */;
+var gPrefParseJS = true;
+var gPrefHideContent = true;
 var gLastTimestamp = Date.now();
 
 // [JavaScript Warning: "foo bar"]
@@ -205,11 +205,6 @@ const ABOUT_FACTORY =
 function startup(aData, aReason) {
   Cu.import("chrome://logview/content/Logs.jsm");
 
-  let prefs = Services.prefs.getDefaultBranch("");
-  prefs.setIntPref(PREF_PRIORITY, gPrefPriority = Logs.LOG_ERROR);
-  prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS = true);
-  prefs.setBoolPref(PREF_HIDE_CONTENT, gPrefHideContent = true);
-
   [
     PREF_PRIORITY,
     PREF_PARSE_JS,
@@ -252,7 +247,16 @@ function shutdown(aData, aReason) {
 }
 
 function install(aData, aReason) {
+  let prefs = Services.prefs.getDefaultBranch("");
+  prefs.setIntPref(PREF_PRIORITY, gPrefPriority);
+  prefs.setBoolPref(PREF_PARSE_JS, gPrefParseJS);
+  prefs.setBoolPref(PREF_HIDE_CONTENT, gPrefHideContent);
 }
 
 function uninstall(aData, aReason) {
+  if (aReason != ADDON_UNINSTALL) {
+    return;
+  }
+  let prefs = Services.prefs.getDefaultBranch("");
+  prefs.deleteBranch(PREF_ROOT);
 }
