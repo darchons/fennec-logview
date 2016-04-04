@@ -4,6 +4,16 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/Prompt.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
+function try_import(uri, name) {
+  try {
+    return Cu.import(uri, {})[name];
+  } catch (e) {
+    return undefined;
+  }
+}
+
+const Snackbars = try_import("resource://gre/modules/Snackbars.jsm", "Snackbars");
+
 const PREF_ROOT = "extensions.logview.";
 const PREF_PRIORITY = PREF_ROOT + "priority";
 const PREF_PARSE_JS = PREF_ROOT + "parse_js";
@@ -106,27 +116,37 @@ function logCallback(log) {
 
   let title = Logs.getPriorityLabel(priority) + "/" + tag;
   let linebreak = message.indexOf("\n");
-  let options = {
-    button: {
-      label: "View",
-      callback: () => {
-        new Prompt({
-          title: title,
-          message: message,
-          buttons: ["Show logs", "Close"],
-        }).show((data) => {
-          if (data.button === 0) {
-            showLogs();
-          }
-        });
-      },
-    },
+  let text = title + ": " + (linebreak < 0 ? message : message.substr(0, linebreak));
+  let callback = () => {
+    new Prompt({
+      title: title,
+      message: message,
+      buttons: ["Show logs", "Close"],
+    }).show((data) => {
+      if (data.button === 0) {
+        showLogs();
+      }
+    });
   };
 
+  if (Snackbars) {
+    Snackbars.show(text, Snackbars.LENGTH_SHORT, {
+      action: {
+        label: "View",
+        callback: callback,
+      },
+    });
+    return;
+  }
+
   getWindow(function(window) {
-    window.NativeWindow && window.NativeWindow.toast.show(
-      title + ": " + (linebreak < 0 ? message : message.substr(0, linebreak)),
-      "short", options);
+    let options = {
+      button: {
+        label: "View",
+        callback: callback,
+      },
+    };
+    window.NativeWindow && window.NativeWindow.toast.show(text, "short", options);
   });
 }
 

@@ -203,6 +203,21 @@
                     .Services.wm.getMostRecentWindow("navigator:browser");
       }
 
+      function toast(msg, duration) {
+        var Snackbars;
+        try {
+          Snackbars = Components.utils.import("resource://gre/modules/Snackbars.jsm", {}).Snackbars;
+        } catch (e) {
+        }
+
+        if (Snackbars) {
+          var length = duration === "indefinite" ? Snackbars.LENGTH_INDEFINITE :
+                       duration === "long" ? Snackbars.LENGTH_LONG : Snackbars.LENGTH_SHORT;
+          return Snackbars.show(msg, length);
+        }
+        return getWindow().NativeWindow.toast.show(msg, duration);
+      }
+
       function doCopy(text) {
         return Components.classes["@mozilla.org/widget/clipboardhelper;1"]
             .getService(Components.interfaces.nsIClipboardHelper)
@@ -212,9 +227,9 @@
       function onCopy() {
         try {
           doCopy(getLogCat());
-          getWindow().NativeWindow.toast.show("Copied logcat to clipboard", "short");
+          toast("Copied logcat to clipboard", "short");
         } catch (e) {
-          getWindow().NativeWindow.toast.show("Cannot copy logcat:\n" + e, "long");
+          toast("Cannot copy logcat:\n" + e, "long");
         }
       }
 
@@ -223,16 +238,16 @@
           function _copy() {
             try {
               doCopy(url);
-              getWindow().NativeWindow.toast.show("Copied link to clipboard", "short");
+              toast("Copied link to clipboard", "short");
             } catch (e) {
-              getWindow().NativeWindow.toast.show("Cannot copy link:\n" + e, "long");
+              toast("Cannot copy link:\n" + e, "long");
             }
           }
           function _open() {
             try {
               getWindow().BrowserApp.addTab(url);
             } catch (e) {
-              getWindow().NativeWindow.toast.show("Cannot open link:\n" + e, "long");
+              toast("Cannot open link:\n" + e, "long");
             }
           }
           getWindow().NativeWindow.doorhanger.show(
@@ -240,14 +255,16 @@
               [{
                 label: "Copy link",
                 callback: _copy,
+                positive: true,
               }, {
                 label: "Open link",
                 callback: _open,
+                positive: false,
               }]);
         }
 
         function _showError(e) {
-          getWindow().NativeWindow.toast.show("Cannot post logcat:\n" + e, "long");
+          toast("Cannot post logcat:\n" + e, "long");
         }
 
         function _makeLink() {
@@ -301,7 +318,7 @@
           req.onerror = _showError;
           req.onload = _onLinkLoad;
 
-          getWindow().NativeWindow.toast.show("Posting to Pastebin...", "short");
+          toast("Posting to Pastebin...", "short");
           req.send(data);
         }
 
